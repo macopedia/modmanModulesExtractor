@@ -13,7 +13,6 @@ define('EXTRACT_ROOTDIR', dirname(__FILE__));
 
 //we assume that webroot and the folder from which this script is called is "htdocs"
 //script will create .modman folder as a sibling to htdocs
-define('MODMAN_ROOT', '../.modman/');
 
 function out($message = '')
 {
@@ -70,8 +69,10 @@ class ModulesExtractor
             'mode' => 'copy',
             'moduleWhitelist' => '.*',
             'themeModuleName' => '',
-            'interactive' => true
-
+            'interactive' => true,
+            'webroot' => 'htdocs',
+            'destinationFolder' => '../.modman/',
+            'nomodman' => false
         );
         global $argv;
         foreach ($argv as $arg) {
@@ -92,7 +93,18 @@ class ModulesExtractor
                 $config['interactive'] = (bool)intval(trim($argArray[1]));
                 continue;
             }
-
+            if ($argArray[0] === 'webroot' && isset($argArray[1])) {
+                $config['webroot'] = trim($argArray[1]);
+                continue;
+            }
+            if ($argArray[0] === 'destinationFolder' && isset($argArray[1])) {
+                $config['destinationFolder'] = trim($argArray[1]) . '/';
+                continue;
+            }
+            if ($argArray[0] === 'nomodman' && isset($argArray[1])) {
+                $config['nomodman'] = (bool)intval(trim($argArray[1]));
+                continue;
+            }
         }
 
         $etcModulesPath = $this->etcModulesPath;
@@ -132,9 +144,9 @@ EOD;
             }
         }
         // create modman folder and basedir file
-        createDir(MODMAN_ROOT);
-        if (!file_exists(MODMAN_ROOT . '.basedir')) {
-            file_put_contents(MODMAN_ROOT . '.basedir', 'htdocs');
+        createDir($config['destinationFolder']);
+        if (!file_exists($config['destinationFolder'] . '.basedir') && !$config['nomodman']) {
+            file_put_contents($config['destinationFolder'] . '.basedir', $config['webroot']);
         }
 
         // move theme module to the top, so it's processed as the first one
@@ -191,7 +203,9 @@ EOD;
             $module->copyLayoutXmlFiles();
             $module->copyEmailTemplates();
             $module->fuzzyFindTemplateFolders();
-            $module->saveModman();
+            if (!$config['nomodman']) {
+                $module->saveModman();
+            }
             $module->saveComposerJson();
             $this->composerNames[] = $module->composerName;
 
@@ -239,7 +253,7 @@ class Module
         $this->xmlName = $module->getName();
         $this->codePool = (string)$module->codePool;
         $this->active = (string)$module->active;
-        $this->moduleModmanPath = MODMAN_ROOT . $this->xmlName . '/';
+        $this->moduleModmanPath = $this->appConfig['destinationFolder'] . $this->xmlName . '/';
         $this->magentoModuleCodePath = 'app/code/' . $this->codePool . '/' . str_replace('_', '/', $this->xmlName) . '/';
     }
 
